@@ -1,0 +1,355 @@
+---
+title: "Applying ARIMA-SARIMA models for time series analysis on Seasonal and Nonseasonal
+  datasets"
+author: |
+  | KISLAY
+  |
+  | Department of Mathematical Sciences, Stevens Institute of Technology, Hoboken, NJ
+  | Project Supervisor: Dr. Hadi Safari Katesari
+output: pdf_document
+---
+
+# ABSTRACT
+Time series analysis is a technique used to examine data in order to identify patterns and make future predic- tions. In this project, we will conduct time series analyses on two kinds of data: seasonal and non-seasonal. Using R, we will establish a process for analyzing and modeling time series data. The first part of the project involves analyzing and forecasting daily electric production data from a electric production dataset. The second part focuses on the time series of food prices in India, with the goal of analyzing and forecasting monthly prices for specific com- modities in particular regions. Various approaches to time series analysis include autoregressive integrated moving average (ARIMA), seasonal autoregressive integrated moving average (SARIMA), autoregressive moving average (ARMA), moving average (MA), and autoregression (AR). This project’s main objective is to provide a comprehensive guide to ARIMA models, examining their combined output and effectiveness in time series modeling and forecasting.
+
+# PART A
+
+# SEASONAL DATASET: ELECTRIC PRODUCTION
+
+# INTRODUCTION
+
+This project consists of predicting the daily production of electricity by using time series and will also predict the future daily production. The data set used here has only 2 columns, once column is date and the other column relates to the consumption percentage. The problem statement is estimating the production of electricity daily for the Dataset. The main purpose of this project is to find the future forecasting of the daily sales of Bakery. The data set used covers a period from January 2016 to December 2017, and includes transaction of bakery items.This can inform future pricing or sales strategies or reveal opportunities for investment.
+
+```{r setup}
+library(data.table)
+library(ggplot2)
+library(forecast)
+library(tseries)
+library(dplyr)
+library(zoo)
+library(TSA)
+```
+
+# DATA DESCRIPTION
+
+Dataset : Dataset is taken from Kaggle.
+
+https://www.kaggle.com/datasets/kandij/electric-production/data
+
+It contains only 2 columns, one column is Date and the other column relates to the consumption percentage.
+
+It shows the consumption of electricity from 1985 till 2018. The goal is to predict electricity consumption for the next years i.e. till 2019.
+
+# ANALYSIS AND RESULTS
+
+**Preprocessing** 
+
+Extract Date and Month column, convert Date to DateTime format.
+
+```{r cars}
+data <- read.csv("/Users/kislaynandan/Desktop/MA 641/Electric_Production.csv")
+df = data
+setDT(data)
+df$DateTime <- as.POSIXct(paste(df$DATE), format="%Y-%m-%d")
+df$Month = month(df$DateTime)
+
+df$Year = year(df$DateTime)
+```
+
+
+```{r pressure, echo=TRUE}
+ts_data <- ts(df$Value, start = min(df$Year), end = max(df$Year), frequency = 12)
+plot(ts_data)
+
+```
+
+*Electricity unit value is converted to time series and plotted.*
+
+The plot displays the daily production of electricity over time. It appears to have a time series object with a frequency of 12, which indicates yearly seasonality.
+
+**Decomposition**
+
+Decomposition is a technique used in time series analysis to break down a time series into its individual components, namely trend, seasonality, and residual (or error). It allows us to understand the underlying patterns and characteristics of the time series, making it easier to analyze and forecast.
+
+```{R Press, echo =TRUE}
+decomp_result <- decompose(ts_data)
+plot(decomp_result)
+
+```
+
+
+# Stationarity Test
+
+Stationarity is a fundamental concept in time series analysis. A stationary time series is one whose statistical properties, such as mean and variance, remain constant over time. It implies that the series has a consistent behavior, and its patterns are predictable over different time periods.
+``` {r station, echo=TRUE}
+result <- adf.test(ts_data)
+result
+cat("p-value:", result$p.value)
+```
+As p value is less than 0.05 the series is Stationary. Since it’s stationary,the ARIMA model of order (p,0,q) will be used where ‘p’ is the order of the AR term and ‘q’ is the order of the MA.
+
+**ACF, PACF & EACF**
+
+Both the Autocorrelation Function (ACF) and the Partial Autocorrelation Function (PACF) were plotted together with EACF. These plots help in identifying the order of the AutoRegressive (AR) or Moving Average (MA) components in ARIMA modeling.The ACF plot displays significant autocorrelation at multiple lags which does not taper off quickly but shows a regular pattern, suggesting seasonality in the data. This regularity and slow decay indicate the need to account for seasonal differences and possibly additional differencing to achieve stationarity if this has not already been addressed.
+
+The PACF plot shows significant partial autocorrelation at the first few lags and cuts off sharply after, which is characteristic of an AR(p) process where 'p' might be around 1 or 2. This suggests that the underlying process could likely be represented with a few AR terms.
+In EACFThe shift from 'x' to 'o' starts quite early in the rows, which indicates a lower number of AR terms might be sufficient. MA terms: Several 'o's appear right from the first column across different rows, suggesting few MA terms are needed,
+``` {R plot, echo=TRUE}
+acf(df$Value, lag.max = 50,
+    main = "Autocorrelation Function (ACF) Plot",
+    xlab = "Lag", ylab = "ACF")
+
+pacf(df$Value, lag.max = 50,
+    main = "Partial Autocorrelation Function (PACF) Plot",
+    xlab = "Lag", ylab = "Partial Autocorrelation")
+
+eacf(df$Value)
+```
+
+# Model fitting
+
+SARIMA MODEL FITTING
+
+• Because the series is seasonal, SARIMA (Seasonal ARIMA) will be used instead of ARIMA. From ACF and PACF plot below models are chosen to fit to the data:
+
+• Fit 1: SARIMA(5,0,0)(1,0,0)[12]
+
+• Fit 2: SARIMA(4,0,0)(1,0,0)[12]
+
+• Fit 3: SARIMA(3,0,0)(1,0,0)[12]
+
+Since the data is daily, seasonality is 12.
+
+```{R model}
+fit <- auto.arima(ts_data)
+fit
+
+sarima_model <- Arima(df$Value, order = c(2, 1, 1), seasonal = list(order = c(0, 1, 1), period = 12))
+
+sarima_model
+```
+```{R}
+Arima(df$Value, order = c(5, 0, 0), seasonal = list(order = c(1, 0, 0), period = 12))
+Arima(df$Value, order = c(4, 0, 0), seasonal = list(order = c(1, 0, 0), period = 12))
+Arima(df$Value, order = c(3, 0, 0), seasonal = list(order = c(1, 0, 0), period = 12))
+```
+Several Seasonal ARIMA (SARIMA) models are considered given the clear seasonal pattern observed in the data. The model selection is based on the criteria of the Akaike Information Criterion (AIC) and the Bayesian Information Criterion (BIC). Models with different combinations of AR, MA, and seasonal components were evaluated.Comparing the fits based on AIC and BIC values: Auto arima has the least AIC and BIC values.Hence best model is the one suggested by the autoarima function with SARIMA Model (2,1,1)(0,1,1)[12].
+
+# Residual Analysis
+
+The residuals of the best-fitting model were analyzed to check the adequacy of the model fit. The residuals appeared to be white noise, as indicated by their ACF, and were approximately normally distributed based on the Shapiro-Wilk test and Q-Q plots.
+```{r}
+residuals <- residuals(fit)
+plot(residuals, main="Residuals from ARIMA model")
+acf(as.vector(residuals), lag.max = 50)
+pacf(as.vector(residuals), lag.max = 50)
+qqnorm(residuals)
+qqline(residuals)
+hist(residuals)
+shapiro.test(residuals)
+Box.test(residuals,lag=10, type="Ljung-Box")
+```
+The ACF plot of the residuals shows that most autocorrelations are within the confidence bounds (the blue dotted lines), which is a good indication that the residuals are white noise.
+
+The plot shows most points lie close to the reference line, suggesting that the residuals are approximately normally distributed.
+
+The histogram shows a relatively bell-shaped curve, but it is not perfectly symmetric, and there appears to be a slight skew to the right.
+
+With a p-value of 0.49, which is above the alpha level of 0.05, we fail to reject the null hypothesis that the residuals are independently distributed, meaning there is no autocorrelation.This further supports the hypothesis that the residuals are random (i.e., no autocorrelation present), indicating a good fit of the model to the data.
+
+```{r}
+tsdiag(fit)
+```
+The analysis of the residuals from the fitted time series model suggests that the model is adequate. The absence of patterns in the residuals and the confirmation of white noise behavior through the ACF plot and Ljung-Box test results indicate that the model captures the underlying process well, with no need for additional complexity in the model structure.
+
+# Prediction
+
+Forecasts were generated using the best-fitting SARIMA model. The point forecasts along with the confidence intervals were plotted, which provided insights into expected future values of electric production. The forecasts are crucial for planning and decision making in energy management.
+```{r prediction}
+predictions <- forecast(sarima_model, h = 12)
+predictions
+
+plot(df$Value, type = "l", col = "blue", xlab = "Year", ylab = "Electric Production", main = "Electric Production Forecast using SARIMA")
+lines(predictions$mean, col = "red")
+legend("topleft", legend = c("Original", "Predictions"), col = c("blue", "red"), lty = c(1, 1))
+```
+
+# Conclusions
+The analysis successfully modeled the electric production data using SARIMA models, taking into account both non-stationarity and seasonality. The model provided satisfactory forecasts with reasonable confidence intervals, indicating robustness in the predictive capability. Future work could explore more complex models or external variables that could potentially improve the forecast accuracy.
+
+# PART B
+
+# NON SEASONAL DATASET: NYC Weather
+
+# INTRODUCTION
+
+This project aims to perform a comprehensive time series analysis on weather data collected from New York City's Central Park in 2016. Time series analysis is a crucial statistical method used to analyze a sequence of data points collected over time intervals. Such analysis can reveal underlying patterns, trends, and seasonal variations, which are vital for forecasting and making informed decisions in meteorology, urban planning, and resource management.
+
+# DATA DESCRIPTION
+
+Dataset : Dataset is taken from Kaggle.
+
+https://www.kaggle.com/datasets/mathijs/weather-data-in-new-york-city-2016
+
+The dataset comprises weather measurements from Central Park, NYC, for the year 2016. These observations have been collected daily, providing a granular view of the city's weather dynamics.
+
+``` {r new data, echo=TRUE}
+library(data.table)
+library(forecast)
+library(tseries)
+library(lubridate)
+library(ggplot2)
+library(MASS)
+library(TSA)
+```
+
+# ANALYSIS AND RESULTS
+
+**Preprocessing** 
+
+Extract Date and Month column, convert Date to DateTime format.
+
+```{r weather, echo=FALSE}
+weather <- read.csv("/Users/kislaynandan/Desktop/MA 641/weather_data_nyc_centralpark_2016.csv")
+kk = weather
+setDT(kk)
+kk[,day := as.Date(date, format = "%d-%m-%Y")]
+kk[,year := year(date)] 
+kk[,mon := month(date)]
+
+mm = kk[, average.temperature, by = .(year, mon)]
+tss = ts(mm$average.temperature)
+#tss <- ts(mm$average.temperature, start = c(min(mm$year), min(mm$mon)), frequency = 12)
+```
+
+*Average Temperature is converted to time series and plotted.*
+
+The plot displays the daily average temperature over time. It appears to have a time series object with a frequency of 12, which indicates yearly seasonality.
+
+```{r plotnew, echo=TRUE}
+plot(tss)
+acf(tss, main = "Autocorrelation Function (ACF)", lag.max = 80)
+pacf(tss, main = "Partial Autocorrelation Function (PACF)",lag.max = 80)
+```
+The above ACF is decaying/decreasing, very slowly, and remains well above the significance range (dotted blue lines). The slow decay in the ACF indicates that the data may have a trend or some form of integrated behavior, requiring differencing to achieve stationarity. The PACF plot suggests that an autoregressive model might be appropriate for this data, with the order of the AR model potentially being indicated by the last significant lag. 
+
+# Stationarity Test 
+``` {r station new, echo=TRUE}
+g = as.numeric(tss)
+adf.test(g)
+```
+
+The initial ADF test result shows a p-value of 0.7802, which is significantly greater than 0.05 (common threshold for statistical significance). This high p-value indicates that we fail to reject the null hypothesis of the presence of a unit root, confirming that the original time series is non-stationary.
+
+```{r}
+tss_diff = diff(tss)
+# Stationarity after differencing 
+h = as.numeric(tss_diff) 
+adf.test(h)
+
+acf(tss_diff)
+pacf(tss_diff)
+
+eacf(tss_diff)
+```
+
+Following the non-stationary result, the time series was differenced once. Differencing is a common technique used to transform a non-stationary time series into a stationary one by removing trends and cycles.
+
+ACF plot displays significant autocorrelations up to lag 1 and then becomes insignificant, it suggests an MA(2) model, so q=2
+
+PACF plot shows significant partial autocorrelations at the first two lags and then cuts off, it suggests an AR(3) model, so p could be 3.
+
+
+The EACF table helps identify an appropriate ARMA model by showing where zeros ('o') dominate after a mix of significant ('x') and non-significant ('o') correlations. In this case, rows 3 and coulmn 2 quickly turn to 'o' across most MA terms, which suggests limited autoregressive or moving average components are needed.
+
+# Model fitting
+
+As the series is non-seasonal, the ARIMA model will be used. From ACF and PACF & EACF plots we chose below models to fit the data:
+
+• Model 1: ARIMA(3,1,2) 
+
+• Model 2: ARIMA(2,1,2) 
+
+• Model 3: ARIMA(1,1,1) 
+
+• Model 4: ARIMA(0,1,1)
+
+```{r}
+arimafit <- auto.arima(tss)
+arimafit
+Arima(tss, order = c(3, 1, 2))
+Arima(tss, order = c(2, 1, 2))
+Arima(tss, order = c(1, 1, 2))
+
+model <- Arima(tss, order = c(1, 1, 2))
+model
+```
+
+Several ARIMA (ARIMA) models are considered given the clear seasonal pattern observed inthe data.  The model selection is based on the criteria of the Akaike Information Criterion (AIC) andthe Bayesian Information Criterion (BIC). Models with different combinations of AR and MA were evaluated.Comparing the fits based on AIC and BIC values: Auto arima has the least AIC and BIC values. Hence best model is the one suggested by the autoarima function with SARIMA Model(1,1,2).
+
+# Residual Analysis
+
+The residuals of the best-fitting model were analyzed to check the adequacy of the model fit. The residualsappeared to be white noise, as indicated by their ACF, and were approximately normally distributed basedon the Shapiro-Wilk test and Q-Q plots.
+
+```{r}
+arima_residuals <- residuals(model)
+plot(arima_residuals, main = "Residuals from ARIMA Model", ylab = "Residuals")
+acf(as.vector(arima_residuals), lag.max = 50)
+pacf(as.vector(arima_residuals), lag.max = 50)
+qqnorm(arima_residuals)
+qqline(arima_residuals)
+hist(arima_residuals)
+print(shapiro.test(arima_residuals))
+ljung_box_test <- Box.test(arima_residuals, lag = 10, type = "Ljung-Box")
+ljung_box_test
+```
+
+The ACF plot shows that most of the autocorrelations fall within the confidence intervals (blue dashed lines), with only a few lags marginally exceeding these limits. This is a generally good sign, indicating minimal autocorrelation within the residuals.
+
+The PACF plot similarly demonstrates that residuals have almost no significant partial autocorrelations, with all values lying well within the confidence bounds.
+
+The Q-Q plot points largely align with the theoretical straight line, except for slight deviations in the tails. This indicates that the residuals are nearly normally distributed.
+
+The histogram shows that the residuals are mostly symmetrically distributed about zero but not perfectly bell-shaped.
+
+With a p-value of 0.7374, there is no evidence to reject the null hypothesis of no autocorrelation among the residuals.
+
+ARIMA model seems to fit the data reasonably well, as indicated by the lack of autocorrelation in the residuals and their approximate normal distribution
+
+
+```{r}
+tsdiag(model)
+```
+
+The analysis of the residuals from the fitted time series model suggests that the model is adequate. The absence of patterns in the residuals and the confirmation of white noise behavior through the ACF plot and Ljung-Box test results indicate that the model captures the underlying process well, with no need for additional complexity in the model structure
+
+# Prediction
+Forecasts were generated using the best-fitting ARIMA model. The point forecasts along with the confidence intervals were plotted, which provided insights into expected future average temperatures. The forecast provides valuable information to the public, helping individuals plan activities and personal energy usage.
+
+```{r}
+forecast_best_model <- forecast(model, h = 12)
+forecast_best_model
+plot(forecast_best_model, col="red", main = "ARIMA Forecast")
+```
+
+# Conclusion
+The ARIMA model's forecast of declining average temperatures in the upcoming periods suggests the need for adaptive strategies across various sectors in New York City. While the model effectively captures the historical temperature patterns and provides a detailed forecast, it is crucial to consider the inherent uncertainties in such predictions. These forecasts should be updated regularly with new data to refine predictions and adjust plans accordingly.
+
+# REFERENCES
+1. Safari-Katesari, H., Samadi, S. Y., & Zaroudi, S. (2020). Modelling count data via copulas. Statistics, 54(6), 1329-1355.
+
+2. Safari-Katesari, H., & Zaroudi, S. (2020). Count copula regression model using generalized beta distribution of the second kind. Statistics, 21, 1-12.
+
+3. Safari-Katesari, H., & Zaroudi, S. (2021). Analysing the impact of dependency on conditional survival functions using copulas. Statistics in Transition New Series, 22(1).
+
+4. Safari Katesari, H., (2021) Bayesian dynamic factor analysis and copula-based models for mixed data, PhD dissertation, Southern Illinois University Carbondale.
+
+5. Zaroudi, S., Faridrohani, M. R., Behzadi, M. H., & Safari-Katesari, H. (2022). Copula-based Modeling for IBNR Claim Loss Reserving. arXiv preprint arXiv:2203.12750.
+
+# LINKS
+
+1. https://www.kaggle.com/datasets/kandij/electric-production/data
+
+2. https://www.kaggle.com/datasets/mathijs/weather-data-in-new-york-city-2016
+
+3. https://www.kaggle.com/code/sujithmandala/how-to-time-series-forecasting
